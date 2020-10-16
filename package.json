@@ -1,0 +1,15 @@
+{
+  "name": "ice-cli",
+  "version": "1.0.0",
+  "description": "- @babel/cli\r - @babel/core\r - @babel/preset-env\r - chalk：控制台输出美化\r - commander：命令行工具\r - download-git-repo：下载远程模板\r - ini：格式转换\r - inquirer：交互式命令行\r - log-symbols：显示图标\r - ora：加载动画",
+  "main": "index.js",
+  "bin": {
+    "ice-cli": "./packages/@ice-vue/cli/bin/ice.js"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
