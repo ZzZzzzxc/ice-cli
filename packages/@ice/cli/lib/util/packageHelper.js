@@ -44,17 +44,21 @@ async function genPackageOptions(options, devDepList, depList) {
   await Promise.all([
     ...genGetDepVersionPromise(devDepList),
     ...genGetDepVersionPromise(depList),
-  ]).then(res => {
-    const devDep = res.splice(0, devDepList.length);
-    const dep = res;
-    // 合并
-    devDep.map(item => {
-      result.devDependencies = { ...result.devDependencies, ...item };
+  ])
+    .then(res => {
+      const devDep = res.splice(0, devDepList.length);
+      const dep = res;
+      // 合并
+      devDep.map(item => {
+        result.devDependencies = { ...result.devDependencies, ...item };
+      });
+      dep.map(item => {
+        result.dependencies = { ...result.dependencies, ...item };
+      });
+    })
+    .catch(err => {
+      throw err;
     });
-    dep.map(item => {
-      result.dependencies = { ...result.dependencies, ...item };
-    });
-  });
 
   return result;
 }

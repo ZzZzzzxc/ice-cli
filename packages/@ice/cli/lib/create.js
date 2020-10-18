@@ -4,13 +4,17 @@ const inquirer = require("inquirer");
 const chalk = require("chalk");
 const ora = require("ora");
 const { execSync } = require("child_process");
-
-const { validateProjectName, clearConsole } = require("./util");
-const { genPackageOptions, genPluginOptions } = require("./util/packageHelper");
+const {
+  hasGit,
+  errorCaptured,
+  writeFileTree,
+  validateProjectName,
+  clearConsole,
+  genPackageOptions,
+  genPluginOptions,
+} = require("./util");
 const ProjectPackageManager = require("./ProjectPackageManager");
-const writeFileTree = require("./util/writeFileTree");
-
-const createTemplete = require("../../cli-plugin-demo");
+const createTemplete = require("../generator");
 
 const loading = ora({
   prefixText: "[ICE]",
@@ -31,22 +35,15 @@ const ACTION = {
     name: "demo",
     value: ["demo", "vue"],
   },
-  TS: {
-    name: "Typescript",
-    value: ["tsx", "@ice-vue/cli-plugin-typescript"],
-  },
-  SASS: {
-    name: "Sass",
-    value: ["sass", "@ice-vue/cli-plugin-sass"],
-  },
-  VUEX: {
-    name: "Vuex",
-    value: ["vuex", "@ice-vue/cli-plugin-vuex"],
-  },
 };
 
+const DEV_DEP_DEFAULT = ["babel-eslint"];
+const DEP_DEFAULT = [];
+
 async function create(projectName) {
+  // 校验项目名称
   validateProjectName(projectName);
+
   const cwd = process.cwd();
   const targetDir = path.resolve(cwd, projectName || ".");
 
@@ -73,28 +70,34 @@ async function create(projectName) {
     }
   }
 
-  fs.mkdirSync(targetDir); // 创建文件夹
+  // 创建文件夹
+  fs.mkdirSync(targetDir);
 
+  // 插件选择
   const { plugins } = await inquirer.prompt([
     {
       name: "plugins",
       type: "checkbox",
       message: "需要加载哪些插件",
-      choices: [ACTION.DEMO, ACTION.TS, ACTION.SASS, ACTION.VUEX],
+      choices: [ACTION.DEMO],
     },
   ]);
 
   loading.start("正在疯狂加载。。。");
 
+  // 生成被选中插件的配置信息
   const { options: presetOptions, plugins: devDepList } = genPluginOptions(
     plugins
   );
-  devDepList.push("babel-eslint");
-  const depList = [];
-
+  // 添加默认本地依赖
+  devDepList.push(...DEV_DEP_DEFAULT);
+  // 添加生成环境依赖
+  const depList = [...DEP_DEFAULT];
+  // 初始化包管理器
   const packageManager = new ProjectPackageManager({ name: projectName });
-
-  const packageOptions = await genPackageOptions(
+  // 生成 package.json 配置信息
+  const [err, packageOptions] = await errorCaptured(
+    genPackageOptions,
     {
       name: projectName,
       dependencies: {},
@@ -104,40 +107,48 @@ async function create(projectName) {
     depList
   );
 
-  loading.succeed("成功获取依赖版本号");
+  if (!err) {
+    // 添加脚手架配置文件
+    presetOptions.iceConfig = {
+      plugins: devDepList.map(item => [item, {}]),
+    };
 
-  presetOptions.config = {
-    plugins: devDepList.map(item => [item, {}]),
-  };
+    // 进入目标路径
+    process.chdir(targetDir);
 
-  process.chdir(targetDir);
+    // 创建 package.json 文件，写入配置信息
+    writeFileTree(targetDir, {
+      "package.json": JSON.stringify(packageOptions, null, 2),
+    });
 
-  // 创建 package.json 文件，写入配置信息
-  writeFileTree(targetDir, {
-    "package.json": JSON.stringify(packageOptions, null, 2),
-  });
+    console.log();
 
-  console.log();
+    loading.succeed("🚀 成功生成 package.json 文件");
 
-  loading.succeed("🚀 初始化成功");
+    packageManager.install();
 
-  packageManager.install();
+    // git 初始化
+    if (hasGit()) {
+      try {
+        execSync("git init");
+        presetOptions.git = true;
+      } catch (err) {
+        presetOptions.git = false;
+      }
+    }
 
-  try {
-    execSync("git init");
-    presetOptions.git = true;
-  } catch (err) {
-    presetOptions.git = false;
+    createTemplete(presetOptions);
+
+    loading.succeed("🎉 成功创建项目");
+
+    console.log();
+    console.log(`$ cd ${projectName}`);
+    console.log("$ npm run dev");
+    console.log();
+  } else {
+    loading.stop();
+    throw err;
   }
-
-  createTemplete(presetOptions);
-
-  loading.succeed("🎉 成功创建项目");
-
-  console.log();
-  console.log(`$ cd ${projectName}`);
-  console.log("$ npm run dev");
-  console.log();
 }
 
 module.exports = create;

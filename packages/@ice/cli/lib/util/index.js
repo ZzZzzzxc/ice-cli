@@ -1,3 +1,8 @@
+const packageHelper = require("./packageHelper");
+const env = require("./env");
+const suggestCommands = require("./suggestCommands");
+const writeFileTree = require("./writeFileTree");
+
 const validateNpmPackageName = require("validate-npm-package-name");
 
 function checkNodeVersion() {}
@@ -24,8 +29,22 @@ function clearConsole() {
   );
 }
 
+async function errorCaptured(asyncFunc, ...args) {
+  try {
+    const res = await asyncFunc(...args);
+    return [null, res];
+  } catch (err) {
+    return [err, null];
+  }
+}
+
 module.exports = {
   checkNodeVersion,
   validateProjectName,
   clearConsole,
+  errorCaptured,
+  ...packageHelper,
+  ...env,
+  suggestCommands,
+  writeFileTree,
 };
